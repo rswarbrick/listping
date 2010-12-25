@@ -4,17 +4,7 @@
 #include <string>
 #include <list>
 #include <ostream>
-
-class mailing_list {
-public:
-  mailing_list (const std::string &address, const std::string &pass);
-
-  const std::string& get_address () const { return address; }
-  const std::string& get_password () const { return password; }
-
-private:
-  std::string address, password;
-};
+#include "mailing_list.h"
 
 class config_file {
 public:
@@ -34,6 +24,6 @@ private:
 };
 
 std::ostream &operator<< (std::ostream &out, const config_file &cf);
-std::ostream &operator<< (std::ostream &out, const mailing_list &ml);
+
 
 #endif

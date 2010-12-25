@@ -45,11 +45,6 @@ static handler_pair handlers[] = {
   handler_pair("", NULL)
 };
 
-mailing_list::mailing_list (const string &_address,
-                            const string &_password)
-: address(_address), password(_password)
-{}
-
 static void
 discard_line (std::istream &stream)
 {
@@ -209,17 +204,6 @@ static void
 password_handler (const string &arg, config_file &conf)
 {
   conf.set_password (arg);
-}
-
-ostream &operator<< (ostream &out, const mailing_list &ml)
-{
-  out << "#[Mailing list: "
-      << ml.get_address ();
-  if (ml.get_password ().size() > 0) {
-    out << " (password: " << ml.get_password () << ")";
-  }
-  out << "]";
-  return out;
 }
 
 ostream &operator<< (ostream &out, const config_file &cf)
