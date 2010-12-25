@@ -11,6 +11,8 @@ public:
   const std::string& get_address () const { return address; }
   const std::string& get_password () const { return password; }
 
+  const std::string get_url () const;
+
 private:
   std::string address, password;
 };
