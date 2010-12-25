@@ -13,6 +13,9 @@ public:
   void set_password (const std::string &pass)
     { cur_pass = pass; }
 
+  std::list<mailing_list>& get_lists ()
+    { return mailing_lists; }
+
 private:
   std::string cur_pass;
   std::list<mailing_list> mailing_lists;

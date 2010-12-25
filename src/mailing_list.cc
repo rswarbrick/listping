@@ -3,6 +3,9 @@
 #include <sstream>
 #include <utility>
 #include <iostream>
+#include <libsoup/soup.h>
+#include <glib.h>
+#include <cstring>
 
 using std::ostream;
 using std::string;
@@ -17,33 +20,56 @@ public:
   ~_mailing_list ();
 
   void update ();
+  ModerationStatus status () const;
 
 private:
   friend std::ostream &operator<< (std::ostream &out,
                                    const _mailing_list &ml);
 
   std::string address, password;
+  SoupSession *session;
 
-  const std::string get_url () const;
+  ModerationStatus _status;
+
+  std::string get_url () const;
 };
 
 _mailing_list::_mailing_list (const string &_address,
                               const string &_password)
 : address (_address), password (_password)
-{}
+{
+  session = soup_session_sync_new ();
+  _status = MODSTATUS_UNKNOWN;
+}
 
 _mailing_list::_mailing_list (const _mailing_list& ml)
 : address (ml.address), password (ml.password)
-{}
+{
+  session = soup_session_sync_new ();
+  _status = MODSTATUS_UNKNOWN;
+}
 
 _mailing_list::~_mailing_list ()
-{}
+{
+  g_object_unref (session);
+}
 
 ostream &operator<< (ostream &out, const _mailing_list &ml)
 {
   out << "#[Mailing list: " << ml.address;
   if (ml.password.size() > 0) {
     out << " (password: " << ml.password << ")";
+  }
+  switch (ml._status) {
+  case MODSTATUS_UNKNOWN:
+    out << " ??";
+    break;
+  case MODSTATUS_EMPTY:
+    out << " --";
+    break;
+  case MODSTATUS_WAITING:
+    out << " ++";
+    break;
   }
   out << "]";
   return out;
@@ -60,7 +86,7 @@ split_on_last (const string &str, char split_at)
   return string_pair (str.substr (0, i), str.substr (i+1));
 }
 
-const string
+string
 _mailing_list::get_url () const
 {
   string_pair name_domain = split_on_last (address, '@');
@@ -76,8 +102,50 @@ _mailing_list::get_url () const
 void
 _mailing_list::update ()
 {
-  std::cerr << "UPDATE\n";
+  SoupMessage *msg;
+  GHashTable *request_form;
+  gchar *request_body;
+  int  http_status;
+
+  request_form = g_hash_table_new (g_str_hash, g_str_equal);
+  g_hash_table_insert (request_form,
+                       g_strdup ("adminpw"),
+                       g_strdup (password.c_str ()));
+  request_body = soup_form_encode_urlencoded (request_form);
+  g_hash_table_destroy (request_form);
+
+  msg = soup_message_new ("POST", get_url ().c_str ());
+  soup_message_set_request (msg, "application/x-www-form-urlencoded",
+                            SOUP_MEMORY_TAKE,
+                            request_body,
+                            strlen (request_body));
+
+  http_status = soup_session_send_message (session, msg);
+
+  if (http_status != 200) {
+    std::cerr << "WARNING: Failed to ping mailing list ("
+              << *this
+              << ").\n  HTTP status = "
+              << http_status
+              << ".";
+    return;
+  }
+
+  // We want to "parse" the results to see whether there's any mail
+  // waiting. If there isn't, mailman writes "There are no pending
+  // requests." so we'll check for that!
+  if (g_strstr_len (msg->response_body->data,
+                    msg->response_body->length,
+                    "There are no pending requests.")) {
+    _status = MODSTATUS_EMPTY;
+  }
+  else _status = MODSTATUS_WAITING;
+
 }
+
+ModerationStatus
+_mailing_list::status () const
+{ return _status; }
 
 /********************************************************************/
 /* mailing_list, the user */
@@ -106,4 +174,10 @@ void
 mailing_list::update ()
 {
   priv->update ();
+}
+
+ModerationStatus
+mailing_list::status () const
+{
+  return priv->status ();
 }

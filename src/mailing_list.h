@@ -6,6 +6,12 @@
 
 class _mailing_list;
 
+enum ModerationStatus {
+  MODSTATUS_UNKNOWN,
+  MODSTATUS_EMPTY,
+  MODSTATUS_WAITING
+};
+
 class mailing_list {
 public:
   mailing_list (const std::string &address, const std::string &pass);
@@ -13,6 +19,7 @@ public:
   ~mailing_list ();
 
   void update ();
+  ModerationStatus status() const;
 
 private:
   friend std::ostream &operator<< (std::ostream &out,
