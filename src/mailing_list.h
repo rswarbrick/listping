@@ -4,17 +4,21 @@
 #include <string>
 #include <ostream>
 
+class _mailing_list;
+
 class mailing_list {
 public:
   mailing_list (const std::string &address, const std::string &pass);
+  mailing_list (const mailing_list &ml);
+  ~mailing_list ();
 
-  const std::string& get_address () const { return address; }
-  const std::string& get_password () const { return password; }
-
-  const std::string get_url () const;
+  void update ();
 
 private:
-  std::string address, password;
+  friend std::ostream &operator<< (std::ostream &out,
+                                   const mailing_list &ml);
+
+  _mailing_list *priv;
 };
 
 std::ostream &operator<< (std::ostream &out, const mailing_list &ml);
