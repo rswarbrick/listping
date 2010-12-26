@@ -4,7 +4,6 @@
 #include <utility>
 #include <iostream>
 #include <libsoup/soup.h>
-#include <glib.h>
 #include <cstring>
 
 using std::ostream;
@@ -19,8 +18,10 @@ public:
   _mailing_list (const _mailing_list& ml);
   ~_mailing_list ();
 
-  void update ();
+  void update (GMutex *mutex);
   ModerationStatus status () const;
+
+  const std::string& get_address () const;
 
 private:
   friend std::ostream &operator<< (std::ostream &out,
@@ -100,7 +101,7 @@ _mailing_list::get_url () const
 }
 
 void
-_mailing_list::update ()
+_mailing_list::update (GMutex *mutex)
 {
   SoupMessage *msg;
   GHashTable *request_form;
@@ -134,6 +135,8 @@ _mailing_list::update ()
   // We want to "parse" the results to see whether there's any mail
   // waiting. If there isn't, mailman writes "There are no pending
   // requests." so we'll check for that!
+  g_mutex_lock (mutex);
+
   if (g_strstr_len (msg->response_body->data,
                     msg->response_body->length,
                     "There are no pending requests.")) {
@@ -141,11 +144,16 @@ _mailing_list::update ()
   }
   else _status = MODSTATUS_WAITING;
 
+  g_mutex_unlock (mutex);
 }
 
 ModerationStatus
 _mailing_list::status () const
 { return _status; }
+
+const std::string&
+_mailing_list::get_address () const
+{ return address; }
 
 /********************************************************************/
 /* mailing_list, the user */
@@ -171,13 +179,19 @@ ostream &operator<< (ostream &out, const mailing_list &ml)
 }
 
 void
-mailing_list::update ()
+mailing_list::update (GMutex *mutex)
 {
-  priv->update ();
+  priv->update (mutex);
 }
 
 ModerationStatus
 mailing_list::status () const
 {
   return priv->status ();
+}
+
+const std::string&
+mailing_list::get_address () const
+{
+  return priv->get_address ();
 }

@@ -7,6 +7,7 @@ AC_PROG_CC
 AC_PROG_CXX
 
 PKG_CHECK_MODULES([libsoup], [libsoup-gnome-2.4 >= 2.30])
+PKG_CHECK_MODULES([libnotify], [libnotify >= 0.5])
 
 AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT

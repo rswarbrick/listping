@@ -3,6 +3,7 @@
 
 #include <string>
 #include <ostream>
+#include <glib.h>
 
 class _mailing_list;
 
@@ -18,8 +19,10 @@ public:
   mailing_list (const mailing_list &ml);
   ~mailing_list ();
 
-  void update ();
+  void update (GMutex *mutex);
   ModerationStatus status() const;
+
+  const std::string& get_address () const;
 
 private:
   friend std::ostream &operator<< (std::ostream &out,
