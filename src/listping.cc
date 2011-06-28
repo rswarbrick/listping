@@ -22,7 +22,6 @@ update_lists (list<mailing_list> &lists, GMutex *mutex)
 {
   list<mailing_list>::iterator it;
   for (it = lists.begin (); it != lists.end (); it++) {
-    std::cerr << "Updating\n";
     it->update (mutex);
   }
 }
