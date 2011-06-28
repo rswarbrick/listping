@@ -34,7 +34,7 @@ update_thread_main (update_data *data)
 
     update_lists (data->conf->get_lists (), data->mutex);
 
-    sleep (60);
+    sleep (120);
   }
   return NULL;
 }
@@ -64,12 +64,14 @@ notify_for_list (const mailing_list &list)
 
 // Call this with mutex held.
 static void
-maybe_notify_all (const list<mailing_list> &lists)
+maybe_notify_all (list<mailing_list> &lists)
 {
-  list<mailing_list>::const_iterator it;
+  list<mailing_list>::iterator it;
   for (it = lists.begin (); it != lists.end (); it++) {
-    if (it->status () == MODSTATUS_WAITING)
+    if (it->status () == MODSTATUS_WAITING) {
       notify_for_list (*it);
+      it->clear ();
+    }    
   }
 }
 
@@ -99,21 +101,14 @@ int main (int argc, char** argv)
   sleep (10);
 
   while (1) {
-    // Every five minutes check to see whether the updater's noticed
-    // something. If so, send a notification.
+    // Every thirty seconds, check to see whether the updater's
+    // noticed something. If so, send a notification.
     g_mutex_lock (data.mutex);
     maybe_notify_all (conf.get_lists ());
     g_mutex_unlock (data.mutex);
 
-    sleep (300);
+    sleep (30);
   }
-
-  /* To terminate the update thread more politely, we could do
-        data.run = false;
-        g_thread_join (updater);
-     (would need to say TRUE to joinable in g_thread_create too). But
-     we don't really need to care here, so just die.
-  */
 
   return 0;
 }

@@ -20,6 +20,7 @@ public:
 
   void update (GMutex *mutex);
   ModerationStatus status () const;
+  void set_status (ModerationStatus st);
 
   const std::string& get_address () const;
 
@@ -151,6 +152,10 @@ ModerationStatus
 _mailing_list::status () const
 { return _status; }
 
+void
+_mailing_list::set_status (ModerationStatus st)
+{ _status = st; }
+
 const std::string&
 _mailing_list::get_address () const
 { return address; }
@@ -194,4 +199,10 @@ const std::string&
 mailing_list::get_address () const
 {
   return priv->get_address ();
+}
+
+void
+mailing_list::clear ()
+{
+  priv->set_status (MODSTATUS_UNKNOWN);
 }

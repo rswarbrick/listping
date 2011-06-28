@@ -20,6 +20,7 @@ public:
   ~mailing_list ();
 
   void update (GMutex *mutex);
+  void clear ();
   ModerationStatus status() const;
 
   const std::string& get_address () const;
