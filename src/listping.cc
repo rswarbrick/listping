@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdexcept>
 #include <string>
+#include <iostream>
 #include <libnotify/notify.h>
 
 using std::list;
@@ -49,7 +50,16 @@ notify_for_list (const mailing_list &list)
     "Message to moderate in list: " + list.get_address ();
 
   n = notify_notification_new ("Message awaits moderation",
-                               message.c_str (), NULL, NULL);
+                               message.c_str (), NULL);
+  if (!n) {
+      // Probably there's no notification daemon running or
+      // something. Output to standard error on the off chance
+      // someone's looking.
+      std::cerr << "Listping: " << message.c_str () << "\n";
+      throw std::runtime_error (
+          string("Couldn't create notification: ") +
+          err->message);
+  }
 
   notify_notification_set_timeout (n, 5000);
 
