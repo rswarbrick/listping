@@ -52,21 +52,22 @@ notify_for_list (const mailing_list &list)
   n = notify_notification_new ("Message awaits moderation",
                                message.c_str (), NULL);
   if (!n) {
-      // Probably there's no notification daemon running or
-      // something. Output to standard error on the off chance
-      // someone's looking.
-      std::cerr << "Listping: " << message.c_str () << "\n";
-      throw std::runtime_error (
-          string("Couldn't create notification: ") +
-          err->message);
+      // Something has to go dramatically wrong for this to fail, I
+      // think. Output to standard error on the off chance someone's
+      // looking and die.
+      std::cerr << "Listping error: "
+                << err->message << "\n";
+      throw std::runtime_error ("Failed to create notification.");
   }
 
   notify_notification_set_timeout (n, 5000);
 
+  // If there's no notification daemon running,
+  // notify_notification_show fails. Let's not die horribly: maybe one
+  // will appear one day...
   if (!notify_notification_show (n, &err)) {
-    throw std::runtime_error (
-      string("Couldn't display notification: ") +
-      err->message);
+      std::cerr << "Listping error: "
+                << err->message << "\n";
   }
 
   g_object_unref (G_OBJECT (n));
