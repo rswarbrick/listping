@@ -18,6 +18,72 @@ struct update_data
   config_file  *conf;
 };
 
+// Wrapper class around NotifyNotification pointers: deals with the
+// object ref'ing and unref'ing and has a (hopefully correct) copy
+// constructor so can be placed inside lists.
+class notification {
+public:
+  notification (const string &msg);
+  notification (const notification &n);
+  ~notification ();
+
+  void set_enabled (bool enable_p = true);
+
+private:
+  NotifyNotification *n;
+};
+
+notification::notification (const string &msg)
+  : n (NULL)
+{
+  GError *err = NULL;
+  n = notify_notification_new ("Message awaits moderation",
+                               msg.c_str (), NULL);
+  if (!n) {
+    // Something has to go dramatically wrong for this to fail, I
+    // think. Output to standard error on the off chance someone's
+    // looking and die.
+    std::cerr << "Listping error: "
+              << err->message << "\n";
+    throw std::runtime_error ("Failed to create notification.");
+  }
+  notify_notification_set_timeout (n, 5000);
+}
+
+notification::notification (const notification &old)
+  : n (old.n)
+{
+  g_object_ref (G_OBJECT (n));
+}
+
+notification::~notification ()
+{
+  g_object_unref (G_OBJECT (n));
+}
+
+void
+notification::set_enabled (bool enable_p)
+{
+  GError *err = NULL;
+  g_return_if_fail (n);
+
+  if (enable_p) {
+    // If there's no notification daemon running,
+    // notify_notification_show fails. Let's not die horribly: maybe one
+    // will appear one day...
+    if (!notify_notification_show (n, &err)) {
+      std::cerr << "Listping error: "
+                << err->message << "\n";
+    }
+  }
+  else {
+    // If the notification isn't visible, close will give an error
+    // (GDBus.Error:org.freedesktop.Notifications.InvalidId) but I
+    // can't check whether or not it is, so just ignore the error.
+    notify_notification_close (n, NULL);
+  }
+}
+
 static void
 update_lists (list<mailing_list> &lists, GMutex *mutex)
 {
@@ -40,49 +106,22 @@ update_thread_main (update_data *data)
   return NULL;
 }
 
-static void
-notify_for_list (const mailing_list &list)
-{
-  NotifyNotification *n;
-  GError *err = NULL;
-
-  string message =
-    "Message to moderate in list: " + list.get_address ();
-
-  n = notify_notification_new ("Message awaits moderation",
-                               message.c_str (), NULL);
-  if (!n) {
-      // Something has to go dramatically wrong for this to fail, I
-      // think. Output to standard error on the off chance someone's
-      // looking and die.
-      std::cerr << "Listping error: "
-                << err->message << "\n";
-      throw std::runtime_error ("Failed to create notification.");
-  }
-
-  notify_notification_set_timeout (n, 5000);
-
-  // If there's no notification daemon running,
-  // notify_notification_show fails. Let's not die horribly: maybe one
-  // will appear one day...
-  if (!notify_notification_show (n, &err)) {
-      std::cerr << "Listping error: "
-                << err->message << "\n";
-  }
-
-  g_object_unref (G_OBJECT (n));
-}
-
 // Call this with mutex held.
 static void
-maybe_notify_all (list<mailing_list> &lists)
+maybe_notify_all (list<mailing_list> &lists,
+                  list<notification> &notifications)
 {
-  list<mailing_list>::iterator it;
-  for (it = lists.begin (); it != lists.end (); it++) {
-    if (it->status () == MODSTATUS_WAITING) {
-      notify_for_list (*it);
-      it->clear ();
-    }    
+  list<mailing_list>::iterator l_it;
+  list<notification>::iterator n_it;
+
+  for (l_it = lists.begin (), n_it = notifications.begin ();
+       l_it != lists.end ();
+       l_it++, n_it++) {
+    if (l_it->status () == MODSTATUS_WAITING) {
+      n_it->set_enabled (true);
+      l_it->clear ();
+    }
+    else n_it->set_enabled (false);
   }
 }
 
@@ -100,6 +139,7 @@ int main (int argc, char** argv)
   data.mutex = g_mutex_new ();
   data.conf = &conf;
 
+
   GThread *updater =
     g_thread_create ((GThreadFunc)update_thread_main,
                      &data, FALSE, &err);
@@ -111,11 +151,20 @@ int main (int argc, char** argv)
 
   sleep (10);
 
+  list<mailing_list> lst = conf.get_lists ();
+  list<notification> notifications;
+  list<mailing_list>::const_iterator it;
+  for (it = lst.begin (); it != lst.end (); it++) {
+    notifications.push_back (
+      notification ("Message to moderate in list: " +
+                    it->get_address ()));
+  }
+
   while (1) {
     // Every thirty seconds, check to see whether the updater's
     // noticed something. If so, send a notification.
     g_mutex_lock (data.mutex);
-    maybe_notify_all (conf.get_lists ());
+    maybe_notify_all (conf.get_lists (), notifications);
     g_mutex_unlock (data.mutex);
 
     sleep (30);
@@ -123,4 +172,3 @@ int main (int argc, char** argv)
 
   return 0;
 }
-
