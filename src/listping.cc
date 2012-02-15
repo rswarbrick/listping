@@ -117,11 +117,17 @@ maybe_notify_all (list<mailing_list> &lists,
   for (l_it = lists.begin (), n_it = notifications.begin ();
        l_it != lists.end ();
        l_it++, n_it++) {
-    if (l_it->status () == MODSTATUS_WAITING) {
+    switch (l_it->status ()) {
+    case MODSTATUS_WAITING:
       n_it->set_enabled (true);
       l_it->clear ();
+      break;
+    case MODSTATUS_EMPTY:
+      n_it->set_enabled (false);
+      break;
+    default:
+      break;
     }
-    else n_it->set_enabled (false);
   }
 }
 
